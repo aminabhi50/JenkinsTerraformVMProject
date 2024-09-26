@@ -1,0 +1,63 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Git Checkout Stage') {
+            steps {
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/aminabhi50/JenkinsTerraformVMProject.git']])
+            }
+        }
+
+        stage('Terraform Version'){
+            steps {
+                bat 'terraform -version'
+            }
+        }
+
+        stage('Terraform Init'){
+            steps {
+                bat 'terraform init'
+            }
+        }
+
+        stage('Terraform Plan'){
+            steps {
+                    withCredentials([azureServicePrincipal(
+                    credentialsId: 'f03ac50c-60ef-4e72-80d5-61e066ba1ca7',
+                    subscriptionIdVariable: 'SUB_ID',
+                    clientIdVariable: 'CLIENT_ID',
+                    clientSecretVariable: 'CLIENT_SECRET',
+                    tenantIdVariable: 'TENANT_ID'
+                )]) {
+                       bat 'terraform plan -var "subscription_id=%SUB_ID%" -var "tenant_id=%TENANT_ID%" -var "client_id=%CLIENT_ID%" -var "client_secret=%CLIENT_SECRET%"'                    }
+                }
+        }
+
+        stage('Terraform Apply'){
+            steps {
+                    withCredentials([azureServicePrincipal(
+                    credentialsId: 'f03ac50c-60ef-4e72-80d5-61e066ba1ca7',
+                    subscriptionIdVariable: 'SUB_ID',
+                    clientIdVariable: 'CLIENT_ID',
+                    clientSecretVariable: 'CLIENT_SECRET',
+                    tenantIdVariable: 'TENANT_ID'
+                )]) {
+                       bat 'terraform apply -auto-approve -var "subscription_id=%SUB_ID%" -var "tenant_id=%TENANT_ID%" -var "client_id=%CLIENT_ID%" -var "client_secret=%CLIENT_SECRET%"'
+                    }
+                }
+        }
+
+    }
+    
+    post {
+        failure {
+            echo "Jenkins Build Failed"
+        }
+        success {
+            echo "Jenkins Build Success"
+        }
+        always {
+            cleanWs()
+        }
+    }
+}
